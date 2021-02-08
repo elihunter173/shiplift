@@ -51,14 +51,10 @@ use futures_util::{
 };
 // use futures::{future::Either, Future, IntoFuture, Stream};
 pub use hyper::Uri;
-use hyper::{client::HttpConnector, Body, Client, Method};
-#[cfg(feature = "tls")]
-use hyper_openssl::HttpsConnector;
+use hyper::{Body, Client, Method};
 #[cfg(feature = "unix-socket")]
 use hyperlocal::UnixConnector;
 use mime::Mime;
-#[cfg(feature = "tls")]
-use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
 use serde_json::Value;
 use std::{env, io, io::Read, iter, path::Path, time::Duration};
 use url::form_urlencoded;
@@ -983,72 +979,6 @@ impl<'a> Volume<'a> {
     }
 }
 
-fn get_http_connector() -> HttpConnector {
-    let mut http = HttpConnector::new();
-    http.enforce_http(false);
-
-    http
-}
-
-#[cfg(feature = "tls")]
-fn get_docker_for_tcp(tcp_host_str: String) -> Docker {
-    let http = get_http_connector();
-    if let Ok(ref certs) = env::var("DOCKER_CERT_PATH") {
-        // fixme: don't unwrap before you know what's in the box
-        // https://github.com/hyperium/hyper/blob/master/src/net.rs#L427-L428
-        let mut connector = SslConnector::builder(SslMethod::tls()).unwrap();
-        connector.set_cipher_list("DEFAULT").unwrap();
-        let cert = &format!("{}/cert.pem", certs);
-        let key = &format!("{}/key.pem", certs);
-        connector
-            .set_certificate_file(&Path::new(cert), SslFiletype::PEM)
-            .unwrap();
-        connector
-            .set_private_key_file(&Path::new(key), SslFiletype::PEM)
-            .unwrap();
-        if env::var("DOCKER_TLS_VERIFY").is_ok() {
-            let ca = &format!("{}/ca.pem", certs);
-            connector.set_ca_file(&Path::new(ca)).unwrap();
-        }
-
-        // If we are attempting to connec to the docker daemon via tcp
-        // we need to convert the scheme to `https` to let hyper connect.
-        // Otherwise, hyper will reject the connection since it does not
-        // recongnize `tcp` as a valid `http` scheme.
-        let tcp_host_str = if tcp_host_str.contains("tcp://") {
-            tcp_host_str.replace("tcp://", "https://")
-        } else {
-            tcp_host_str
-        };
-
-        Docker {
-            transport: Transport::EncryptedTcp {
-                client: Client::builder()
-                    .build(HttpsConnector::with_connector(http, connector).unwrap()),
-                host: tcp_host_str,
-            },
-        }
-    } else {
-        Docker {
-            transport: Transport::Tcp {
-                client: Client::builder().build(http),
-                host: tcp_host_str,
-            },
-        }
-    }
-}
-
-#[cfg(not(feature = "tls"))]
-fn get_docker_for_tcp(tcp_host_str: String) -> Docker {
-    let http = get_http_connector();
-    Docker {
-        transport: Transport::Tcp {
-            client: Client::builder().build(http),
-            host: tcp_host_str,
-        },
-    }
-}
-
 // https://docs.docker.com/reference/api/docker_remote_api_v1.17/
 impl Docker {
     /// constructs a new Docker instance for a docker host listening at a url specified by an env var `DOCKER_HOST`,
@@ -1078,37 +1008,14 @@ impl Docker {
         S: Into<String>,
     {
         Docker {
-            transport: Transport::Unix {
-                client: Client::builder()
-                    .pool_max_idle_per_host(0)
-                    .build(UnixConnector),
-                path: socket_path.into(),
-            },
+            transport: Transport::from_unix_socket(socket_path.into()),
         }
     }
 
     /// constructs a new Docker instance for docker host listening at the given host url
     pub fn host(host: Uri) -> Docker {
-        let tcp_host_str = format!(
-            "{}://{}:{}",
-            host.scheme_str().unwrap(),
-            host.host().unwrap().to_owned(),
-            host.port_u16().unwrap_or(80)
-        );
-
-        match host.scheme_str() {
-            #[cfg(feature = "unix-socket")]
-            Some("unix") => Docker {
-                transport: Transport::Unix {
-                    client: Client::builder().build(UnixConnector),
-                    path: host.path().to_owned(),
-                },
-            },
-
-            #[cfg(not(feature = "unix-socket"))]
-            Some("unix") => panic!("Unix socket support is disabled"),
-
-            _ => get_docker_for_tcp(tcp_host_str),
+        Docker {
+            transport: Transport::from_uri(host),
         }
     }
 
