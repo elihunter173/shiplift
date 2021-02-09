@@ -825,3 +825,48 @@ pub enum Status {
     Untagged(String),
     Deleted(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test registry auth with token
+    #[test]
+    fn registry_auth_token() {
+        let options = RegistryAuth::token("abc");
+        assert_eq!(
+            base64::encode(r#"{"identitytoken":"abc"}"#),
+            options.serialize()
+        );
+    }
+
+    /// Test registry auth with username and password
+    #[test]
+    fn registry_auth_password_simple() {
+        let options = RegistryAuth::builder()
+            .username("user_abc")
+            .password("password_abc")
+            .build();
+        assert_eq!(
+            base64::encode(r#"{"username":"user_abc","password":"password_abc"}"#),
+            options.serialize()
+        );
+    }
+
+    /// Test registry auth with all fields
+    #[test]
+    fn registry_auth_password_all() {
+        let options = RegistryAuth::builder()
+            .username("user_abc")
+            .password("password_abc")
+            .email("email_abc")
+            .server_address("https://example.org")
+            .build();
+        assert_eq!(
+            base64::encode(
+                r#"{"username":"user_abc","password":"password_abc","email":"email_abc","serveraddress":"https://example.org"}"#
+            ),
+            options.serialize()
+        );
+    }
+}

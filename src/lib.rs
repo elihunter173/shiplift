@@ -17,7 +17,6 @@
 //! # };
 //! ```
 
-pub mod builder;
 pub mod errors;
 pub mod transport;
 pub mod tty;
@@ -74,7 +73,7 @@ pub use crate::{
     network::{
         ContainerConnectionOptions, Network, NetworkCreateOptions, NetworkListOptions, Networks,
     },
-    service::{Service, Services},
+    service::{Service, ServiceListOptions, ServiceOptions, Services},
     transport::Transport,
     volume::{Volume, VolumeCreateOptions, Volumes},
 };
