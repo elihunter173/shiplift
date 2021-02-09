@@ -19,7 +19,6 @@
 
 pub mod builder;
 pub mod errors;
-pub mod rep;
 pub mod transport;
 pub mod tty;
 
@@ -27,9 +26,39 @@ mod container;
 mod exec;
 mod image;
 mod network;
+mod service;
 mod volume;
 
 mod tarball;
+
+#[cfg(feature = "chrono")]
+mod datetime;
+
+use std::{collections::HashMap, env, io, path::Path};
+
+use futures_util::{stream::Stream, TryStreamExt};
+use hyper::{client::HttpConnector, Body, Client, Method};
+use mime::Mime;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use url::form_urlencoded;
+
+use crate::transport::{Headers, Payload};
+
+#[cfg(feature = "chrono")]
+use crate::datetime::{datetime_from_nano_timestamp, datetime_from_unix_timestamp};
+#[cfg(feature = "chrono")]
+use chrono::{DateTime, Utc};
+
+#[cfg(feature = "tls")]
+use hyper_openssl::HttpsConnector;
+#[cfg(feature = "tls")]
+use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
+
+#[cfg(feature = "unix-socket")]
+use hyperlocal::UnixConnector;
+
+pub use hyper::Uri;
 
 pub use crate::{
     container::{
@@ -45,25 +74,10 @@ pub use crate::{
     network::{
         ContainerConnectionOptions, Network, NetworkCreateOptions, NetworkListOptions, Networks,
     },
-    rep::{Event, Info, Version},
+    service::{Service, Services},
     transport::Transport,
     volume::{Volume, VolumeCreateOptions, Volumes},
 };
-use futures_util::{stream::Stream, TryStreamExt};
-
-// use futures::{future::Either, Future, IntoFuture, Stream};
-pub use hyper::Uri;
-use hyper::{client::HttpConnector, Body, Client, Method};
-#[cfg(feature = "tls")]
-use hyper_openssl::HttpsConnector;
-#[cfg(feature = "unix-socket")]
-use hyperlocal::UnixConnector;
-use mime::Mime;
-#[cfg(feature = "tls")]
-use openssl::ssl::{SslConnector, SslFiletype, SslMethod};
-use serde_json::Value;
-use std::{collections::HashMap, env, io, path::Path};
-use url::form_urlencoded;
 
 /// Entrypoint interface for communicating with docker daemon
 #[derive(Clone)]
@@ -575,6 +589,79 @@ impl EventsOptionsBuilder {
             params: self.params.clone(),
         }
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Version {
+    pub version: String,
+    pub api_version: String,
+    pub git_commit: String,
+    pub go_version: String,
+    pub os: String,
+    pub arch: String,
+    pub kernel_version: String,
+    #[cfg(feature = "chrono")]
+    pub build_time: DateTime<Utc>,
+    #[cfg(not(feature = "chrono"))]
+    pub build_time: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct Info {
+    pub containers: u64,
+    pub images: u64,
+    pub driver: String,
+    pub docker_root_dir: String,
+    pub driver_status: Vec<Vec<String>>,
+    #[serde(rename = "ID")]
+    pub id: String,
+    pub kernel_version: String,
+    // pub Labels: Option<???>,
+    pub mem_total: u64,
+    pub memory_limit: bool,
+    #[serde(rename = "NCPU")]
+    pub n_cpu: u64,
+    pub n_events_listener: u64,
+    pub n_goroutines: u64,
+    pub name: String,
+    pub operating_system: String,
+    // pub RegistryConfig:???
+    pub swap_limit: bool,
+    pub system_time: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Event {
+    #[serde(rename = "Type")]
+    pub typ: String,
+    #[serde(rename = "Action")]
+    pub action: String,
+    #[serde(rename = "Actor")]
+    pub actor: Actor,
+    pub status: Option<String>,
+    pub id: Option<String>,
+    pub from: Option<String>,
+    #[cfg(feature = "chrono")]
+    #[serde(deserialize_with = "datetime_from_unix_timestamp")]
+    pub time: DateTime<Utc>,
+    #[cfg(not(feature = "chrono"))]
+    pub time: u64,
+    #[cfg(feature = "chrono")]
+    #[serde(deserialize_with = "datetime_from_nano_timestamp", rename = "timeNano")]
+    pub time_nano: DateTime<Utc>,
+    #[cfg(not(feature = "chrono"))]
+    #[serde(rename = "timeNano")]
+    pub time_nano: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Actor {
+    #[serde(rename = "ID")]
+    pub id: String,
+    #[serde(rename = "Attributes")]
+    pub attributes: HashMap<String, String>,
 }
 
 #[cfg(test)]
