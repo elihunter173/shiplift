@@ -9,11 +9,11 @@ use hyper::Body;
 use mime::Mime;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
+use url::form_urlencoded;
 
 use crate::{
     errors::{Error, Result},
     exec::{Exec, ExecContainerOptions},
-    form_urlencoded,
     image::Config,
     network::{NetworkInfo, NetworkSettings},
     transport::Payload,
