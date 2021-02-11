@@ -339,8 +339,7 @@ where
     Ok(serde_json::to_value(value)?)
 }
 
-// TODO(elihunter173): How to handle this?
-// pub type Services = Vec<Service>;
+pub type ServicesInfo = Vec<ServiceInfo>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
