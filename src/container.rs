@@ -1,3 +1,7 @@
+//! Create and manage containers.
+//!
+//! API Reference: <https://docs.docker.com/engine/api/v1.41/#tag/Container>
+
 use std::{collections::HashMap, hash::Hash, io, iter::Peekable, path::Path, time::Duration};
 
 use futures_util::{

@@ -1,3 +1,7 @@
+//! Create and manage user-defined networks that containers can be attached to.
+//!
+//! API Reference: <https://docs.docker.com/engine/api/v1.41/#tag/Network>
+
 use std::{
     collections::{BTreeMap, HashMap},
     hash::Hash,

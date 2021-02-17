@@ -1,3 +1,7 @@
+//! Main entrypoint for interacting with the Docker API.
+//!
+//! API Reference: <https://docs.docker.com/engine/api/v1.41/>
+
 use std::{collections::HashMap, env, io, path::Path};
 
 use futures_util::{stream::Stream, TryStreamExt};
