@@ -39,7 +39,9 @@ impl<'docker> Services<'docker> {
             path.push(query);
         }
 
-        self.docker.get_json::<Vec<ServiceInfo>>(&path.join("?")).await
+        self.docker
+            .get_json::<Vec<ServiceInfo>>(&path.join("?"))
+            .await
     }
 
     /// Returns a reference to a set of operations available for a named service
