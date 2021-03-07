@@ -63,17 +63,17 @@ macro_rules! reexport {
     (@alias $module:ident :: $item:ident as $old_item:ident) => {
         ::paste::paste! {
             #[deprecated(
-                since = "0.7.0",
+                since = "0.8.0",
                 note = "Please use `shiplift::" $module "::" $item "`. "
-                       "This will be removed in 0.8.0."
+                       "This will be removed in 0.9.0."
             )]
             pub type $old_item = $crate::$module::$item;
         }
     };
     (mod $old_module:ident; $( $module:ident :: {$( $item:ident $(as $old_item:ident)? ),*$(,)?} ),*$(,)?) => {
         #[deprecated(
-            since = "0.7.0",
-            note = "Please use `shiplift::{container, docker, exec, image, network, service, volume}` as appropriate. This will be removed in 0.8.0."
+            since = "0.8.0",
+            note = "Please use `shiplift::{container, docker, exec, image, network, service, volume}` as appropriate. This will be removed in 0.9.0."
         )]
         pub mod $old_module {
             $($( reexport!(@alias $module::$item $(as $old_item)?); )*)*
