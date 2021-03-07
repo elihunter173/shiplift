@@ -20,13 +20,13 @@ use crate::{
 use chrono::{DateTime, Utc};
 
 /// Interface for docker volumes
-pub struct Volumes<'a> {
-    docker: &'a Docker,
+pub struct Volumes<'docker> {
+    docker: &'docker Docker,
 }
 
-impl<'a> Volumes<'a> {
+impl<'docker> Volumes<'docker> {
     /// Exports an interface for interacting with docker volumes
-    pub fn new(docker: &Docker) -> Volumes {
+    pub fn new(docker: &'docker Docker) -> Self {
         Volumes { docker }
     }
 
@@ -43,10 +43,10 @@ impl<'a> Volumes<'a> {
     }
 
     /// Lists the docker volumes on the current docker host
-    pub async fn list(&self) -> Result<Vec<VolumeInfo>> {
+    pub async fn list(&self) -> Result<Vec<VolumeRep>> {
         let path = vec!["/volumes".to_owned()];
 
-        let volumes_rep = self.docker.get_json::<VolumesInfo>(&path.join("?")).await?;
+        let volumes_rep = self.docker.get_json::<VolumesRep>(&path.join("?")).await?;
         Ok(match volumes_rep.volumes {
             Some(volumes) => volumes,
             None => vec![],
@@ -57,23 +57,23 @@ impl<'a> Volumes<'a> {
     pub fn get(
         &self,
         name: &str,
-    ) -> Volume {
+    ) -> Volume<'docker> {
         Volume::new(self.docker, name)
     }
 }
 
 /// Interface for accessing and manipulating a named docker volume
-pub struct Volume<'a> {
-    docker: &'a Docker,
+pub struct Volume<'docker> {
+    docker: &'docker Docker,
     name: String,
 }
 
-impl<'a> Volume<'a> {
+impl<'docker> Volume<'docker> {
     /// Exports an interface for operations that may be performed against a named volume
     pub fn new<S>(
-        docker: &Docker,
+        docker: &'docker Docker,
         name: S,
-    ) -> Volume
+    ) -> Self
     where
         S: Into<String>,
     {

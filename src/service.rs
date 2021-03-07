@@ -19,13 +19,13 @@ use crate::{
 use chrono::{DateTime, Utc};
 
 /// Interface for docker services
-pub struct Services<'a> {
-    docker: &'a Docker,
+pub struct Services<'docker> {
+    docker: &'docker Docker,
 }
 
-impl<'a> Services<'a> {
+impl<'docker> Services<'docker> {
     /// Exports an interface for interacting with docker services
-    pub fn new(docker: &Docker) -> Services {
+    pub fn new(docker: &'docker Docker) -> Self {
         Services { docker }
     }
 
@@ -33,37 +33,36 @@ impl<'a> Services<'a> {
     pub async fn list(
         &self,
         opts: &ServiceListOptions,
-    ) -> Result<Vec<ServiceInfo>> {
+    ) -> Result<ServicesRep> {
         let mut path = vec!["/services".to_owned()];
         if let Some(query) = opts.serialize() {
             path.push(query);
         }
-        self.docker
-            .get_json::<Vec<ServiceInfo>>(&path.join("?"))
-            .await
+
+        self.docker.get_json::<ServicesRep>(&path.join("?")).await
     }
 
     /// Returns a reference to a set of operations available for a named service
     pub fn get(
         &self,
         name: &str,
-    ) -> Service {
+    ) -> Service<'docker> {
         Service::new(self.docker, name)
     }
 }
 
 /// Interface for accessing and manipulating a named docker volume
-pub struct Service<'a> {
-    docker: &'a Docker,
+pub struct Service<'docker> {
+    docker: &'docker Docker,
     name: String,
 }
 
-impl<'a> Service<'a> {
+impl<'docker> Service<'docker> {
     /// Exports an interface for operations that may be performed against a named service
     pub fn new<S>(
-        docker: &Docker,
+        docker: &'docker Docker,
         name: S,
-    ) -> Service
+    ) -> Self
     where
         S: Into<String>,
     {
@@ -112,7 +111,7 @@ impl<'a> Service<'a> {
     pub fn logs(
         &self,
         opts: &LogsOptions,
-    ) -> impl Stream<Item = Result<tty::TtyChunk>> + Unpin + 'a {
+    ) -> impl Stream<Item = Result<tty::TtyChunk>> + Unpin + 'docker {
         let mut path = vec![format!("/services/{}/logs", self.name)];
         if let Some(query) = opts.serialize() {
             path.push(query)

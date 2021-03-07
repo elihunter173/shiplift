@@ -171,25 +171,25 @@ impl Docker {
     }
 
     /// Exports an interface for interacting with docker images
-    pub fn images(&self) -> Images {
+    pub fn images(&'_ self) -> Images<'_> {
         Images::new(self)
     }
 
     /// Exports an interface for interacting with docker containers
-    pub fn containers(&self) -> Containers {
+    pub fn containers(&'_ self) -> Containers<'_> {
         Containers::new(self)
     }
 
     /// Exports an interface for interacting with docker services
-    pub fn services(&self) -> Services {
+    pub fn services(&'_ self) -> Services<'_> {
         Services::new(self)
     }
 
-    pub fn networks(&self) -> Networks {
+    pub fn networks(&'_ self) -> Networks<'_> {
         Networks::new(self)
     }
 
-    pub fn volumes(&self) -> Volumes {
+    pub fn volumes(&'_ self) -> Volumes<'_> {
         Volumes::new(self)
     }
 
@@ -209,10 +209,10 @@ impl Docker {
     }
 
     /// Returns a stream of docker events
-    pub fn events<'a>(
-        &'a self,
+    pub fn events<'docker>(
+        &'docker self,
         opts: &EventsOptions,
-    ) -> impl Stream<Item = Result<Event>> + Unpin + 'a {
+    ) -> impl Stream<Item = Result<Event>> + Unpin + 'docker {
         let mut path = vec!["/events".to_owned()];
         if let Some(query) = opts.serialize() {
             path.push(query);

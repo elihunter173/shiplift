@@ -18,17 +18,17 @@ use crate::datetime::datetime_from_unix_timestamp;
 use chrono::{DateTime, Utc};
 
 /// Interface for accessing and manipulating a named docker image
-pub struct Image<'a> {
-    docker: &'a Docker,
+pub struct Image<'docker> {
+    docker: &'docker Docker,
     name: String,
 }
 
-impl<'a> Image<'a> {
+impl<'docker> Image<'docker> {
     /// Exports an interface for operations that may be performed against a named image
     pub fn new<S>(
-        docker: &Docker,
+        docker: &'docker Docker,
         name: S,
-    ) -> Image
+    ) -> Self
     where
         S: Into<String>,
     {
@@ -60,7 +60,7 @@ impl<'a> Image<'a> {
     }
 
     /// Export this image to a tarball
-    pub fn export(&self) -> impl Stream<Item = Result<Vec<u8>>> + Unpin + 'a {
+    pub fn export(&self) -> impl Stream<Item = Result<Vec<u8>>> + Unpin + 'docker {
         Box::pin(
             self.docker
                 .stream_get(format!("/images/{}/get", self.name))
@@ -83,38 +83,46 @@ impl<'a> Image<'a> {
 }
 
 /// Interface for docker images
-pub struct Images<'a> {
-    docker: &'a Docker,
+pub struct Images<'docker> {
+    docker: &'docker Docker,
 }
 
-impl<'a> Images<'a> {
+impl<'docker> Images<'docker> {
     /// Exports an interface for interacting with docker images
-    pub fn new(docker: &'a Docker) -> Images<'a> {
+    pub fn new(docker: &'docker Docker) -> Self {
         Images { docker }
     }
 
     /// Builds a new image build by reading a Dockerfile in a target directory
     pub fn build(
-        &'a self,
-        opts: &'a BuildOptions,
-    ) -> impl Stream<Item = Result<Value>> + Unpin + 'a {
+        &self,
+        opts: &BuildOptions,
+    ) -> impl Stream<Item = Result<Value>> + Unpin + 'docker {
+        let mut endpoint = vec!["/build".to_owned()];
+        if let Some(query) = opts.serialize() {
+            endpoint.push(query)
+        }
+
+        // To not tie the lifetime of `opts` to the 'stream, we do the tarring work outside of the
+        // stream. But for backwards compatability, we have to return the error inside of the
+        // stream.
+        let mut bytes = Vec::default();
+        let tar_result = tarball::dir(&mut bytes, opts.path.as_str());
+
+        // We must take ownership of the Docker reference. If we don't then the lifetime of 'stream
+        // is incorrectly tied to `self`.
+        let docker = self.docker;
+
         Box::pin(
             async move {
-                let mut path = vec!["/build".to_owned()];
-                if let Some(query) = opts.serialize() {
-                    path.push(query)
-                }
+                // Bubble up error inside the stream for backwards compatability
+                tar_result?;
 
-                let mut bytes = Vec::default();
-
-                tarball::dir(&mut bytes, &opts.path[..])?;
-
-                let value_stream = self.docker.stream_post_into_values(
-                    path.join("?"),
+                let value_stream = docker.stream_post_into_values(
+                    endpoint.join("?"),
                     Some((Body::from(bytes), tar())),
                     None::<iter::Empty<_>>,
                 );
-
                 Ok(value_stream)
             }
             .try_flatten_stream(),
@@ -139,7 +147,7 @@ impl<'a> Images<'a> {
     pub fn get<S>(
         &self,
         name: S,
-    ) -> Image<'a>
+    ) -> Image<'docker>
     where
         S: Into<String>,
     {
@@ -163,7 +171,7 @@ impl<'a> Images<'a> {
     pub fn pull(
         &self,
         opts: &PullOptions,
-    ) -> impl Stream<Item = Result<Value>> + Unpin + 'a {
+    ) -> impl Stream<Item = Result<Value>> + Unpin + 'docker {
         let mut path = vec!["/images/create".to_owned()];
         if let Some(query) = opts.serialize() {
             path.push(query);
@@ -183,7 +191,7 @@ impl<'a> Images<'a> {
     pub fn export(
         &self,
         names: Vec<&str>,
-    ) -> impl Stream<Item = Result<Vec<u8>>> + 'a {
+    ) -> impl Stream<Item = Result<Vec<u8>>> + 'docker {
         let params = names.iter().map(|n| ("names", *n));
         let query = form_urlencoded::Serializer::new(String::new())
             .extend_pairs(params)
@@ -198,9 +206,9 @@ impl<'a> Images<'a> {
     pub fn import<R>(
         self,
         mut tarball: R,
-    ) -> impl Stream<Item = Result<Value>> + Unpin + 'a
+    ) -> impl Stream<Item = Result<Value>> + Unpin + 'docker
     where
-        R: Read + Send + 'a,
+        R: Read + Send + 'docker,
     {
         Box::pin(
             async move {
