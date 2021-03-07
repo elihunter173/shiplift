@@ -790,12 +790,6 @@ pub struct ImageDetails {
     pub metadata: Metadata,
 }
 
-#[deprecated(
-    since = "0.7.0",
-    note = "Please use `shiplift::image::ContainerConfig`. This will be removed in 0.8.0"
-)]
-pub type Config = ContainerConfig;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct ContainerConfig {

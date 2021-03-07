@@ -7,7 +7,7 @@ use std::{collections::HashMap, hash::Hash, io, iter::Peekable, path::Path, time
 use futures_util::{
     io::{AsyncRead, AsyncWrite},
     stream::Stream,
-    TryFutureExt, TryStreamExt,
+    TryStreamExt,
 };
 use hyper::Body;
 use mime::Mime;
@@ -18,7 +18,7 @@ use url::form_urlencoded;
 use crate::{
     errors::{Error, Result},
     exec::{Exec, ExecContainerOptions},
-    image::Config,
+    image::ContainerConfig,
     network::{NetworkInfo, NetworkSettings},
     transport::Payload,
     tty::{self, Multiplexer as TtyMultiPlexer},
@@ -1155,7 +1155,7 @@ pub struct ContainerInfo {
 pub struct ContainerDetails {
     pub app_armor_profile: String,
     pub args: Vec<String>,
-    pub config: Config,
+    pub config: ContainerConfig,
     #[cfg(feature = "chrono")]
     pub created: DateTime<Utc>,
     #[cfg(not(feature = "chrono"))]
