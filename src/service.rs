@@ -33,13 +33,13 @@ impl<'docker> Services<'docker> {
     pub async fn list(
         &self,
         opts: &ServiceListOptions,
-    ) -> Result<ServicesRep> {
+    ) -> Result<Vec<ServiceInfo>> {
         let mut path = vec!["/services".to_owned()];
         if let Some(query) = opts.serialize() {
             path.push(query);
         }
 
-        self.docker.get_json::<ServicesRep>(&path.join("?")).await
+        self.docker.get_json::<Vec<ServiceInfo>>(&path.join("?")).await
     }
 
     /// Returns a reference to a set of operations available for a named service

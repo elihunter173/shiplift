@@ -43,10 +43,10 @@ impl<'docker> Volumes<'docker> {
     }
 
     /// Lists the docker volumes on the current docker host
-    pub async fn list(&self) -> Result<Vec<VolumeRep>> {
+    pub async fn list(&self) -> Result<Vec<VolumeInfo>> {
         let path = vec!["/volumes".to_owned()];
 
-        let volumes_rep = self.docker.get_json::<VolumesRep>(&path.join("?")).await?;
+        let volumes_rep = self.docker.get_json::<VolumesInfo>(&path.join("?")).await?;
         Ok(match volumes_rep.volumes {
             Some(volumes) => volumes,
             None => vec![],

@@ -17,6 +17,54 @@ use crate::{
     Docker,
 };
 
+/// Interface for docker network
+pub struct Networks<'docker> {
+    docker: &'docker Docker,
+}
+
+impl<'docker> Networks<'docker> {
+    /// Exports an interface for interacting with docker Networks
+    pub fn new(docker: &'docker Docker) -> Self {
+        Networks { docker }
+    }
+
+    /// List the docker networks on the current docker host
+    pub async fn list(
+        &self,
+        opts: &NetworkListOptions,
+    ) -> Result<Vec<NetworkInfo>> {
+        let mut path = vec!["/networks".to_owned()];
+        if let Some(query) = opts.serialize() {
+            path.push(query);
+        }
+        self.docker.get_json(&path.join("?")).await
+    }
+
+    /// Returns a reference to a set of operations available to a specific network instance
+    pub fn get<S>(
+        &self,
+        id: S,
+    ) -> Network<'docker>
+    where
+        S: Into<String>,
+    {
+        Network::new(self.docker, id)
+    }
+
+    /// Create a new Network instance
+    pub async fn create(
+        &self,
+        opts: &NetworkCreateOptions,
+    ) -> Result<NetworkCreateInfo> {
+        let body: Body = opts.serialize()?.into();
+        let path = vec!["/networks/create".to_owned()];
+
+        self.docker
+            .post_json(&path.join("?"), Some((body, mime::APPLICATION_JSON)))
+            .await
+    }
+}
+
 /// Interface for accessing and manipulating a docker network
 pub struct Network<'docker> {
     docker: &'docker Docker,
